@@ -2,32 +2,343 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>GitHub Text Fetch</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='50%' x='50%' dominant-baseline='middle' text-anchor='middle' font-size='80'>🧲</text></svg>">
+  <title>Magnetizer!</title>
+
+
+  <style>
+    .warning {
+      color: white;
+      background-color: crimson;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .magnet-button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .magnet-button:hover {
+      background-color: #005fa3;
+    }
+
+    .copy-button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .copy-button:hover {
+      background-color: #218838;
+    }
+
+    .help-box {
+      background-color: #fff9c4; /* Light yellow */
+      border: 1px solid #f0e68c;
+      padding: 15px 20px;
+      border-radius: 8px;
+      font-family: sans-serif;
+      color: #333;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    .help-box::before {
+      content: '❓';
+      font-size: 1.5em;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
+
+    .help-content {
+      margin-left: 30px;
+    }
+
+
+    .disclaimer-box {
+      background-color: #f9f9f9;
+      border-left: 5px solid #ff9800;
+      padding: 15px 20px;
+      margin: 20px 0;
+      font-family: sans-serif;
+      color: #444;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .disclaimer-title {
+      font-weight: bold;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+
+    div {
+        max-width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+    }
+  </style>
 </head>
 <body>
-  <h1 id="content">Loading...</h1>
+  <h1 id="content"></h1>
+
   
+
+
   <script>
-  alert("It works");
 
-  const fileUrl = 'https://raw.githubusercontent.com/ngosang/trackerslist/refs/heads/master/trackers_best.txt';
+    let lastHash = location.hash;
+    window.addEventListener('hashchange', () => {
+        if (location.hash !== lastHash) {
+            lastHash = location.hash;
+            location.reload();
+        }
+    });
 
-  fetch(fileUrl)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+    // Yeah, I know this page is vulnerable to XSS, but do I care? Have fun if you want, skiddy.
+    function escapeOutput(toOutput){
+      return toOutput.replace(/\&/g, '&amp;')
+          .replace(/\</g, '&lt;')
+          .replace(/\>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/\'/g, '&#x27;')
+          .replace(/\//g, '&#x2F;');
+    }
+
+    function isValidHash(str) {
+      // Magnet hashes are 40 hexadecimal characters
+      return /^[a-fA-F0-9]{40}$/.test(str);
+    }
+
+    function getHashParams() {
+        const hash = window.location.hash.substring(1); // Remove the '#'
+        const params = new URLSearchParams(hash);
+        return {
+            hashv1: escapeOutput(params.get('hash') || ''),
+            name: escapeOutput(params.get('name') || '')
+        };
+    }
+
+    const fileUrl = 'https://raw.githubusercontent.com/ngosang/trackerslist/refs/heads/master/trackers_best.txt';
+
+    const defaultTrackers = `udp://tracker.opentrackr.org:1337/announce
+
+udp://open.stealth.si:80/announce
+
+udp://exodus.desync.com:6969/announce
+
+udp://wepzone.net:6969/announce
+
+udp://ttk2.nbaonlineservice.com:6969/announce
+
+udp://tracker2.dler.org:80/announce
+
+udp://tracker.wepzone.net:6969/announce
+
+udp://tracker.srv00.com:6969/announce
+
+udp://tracker.qu.ax:6969/announce
+
+udp://tracker.hifimarket.in:2710/announce
+
+udp://tracker.gmi.gd:6969/announce
+
+udp://tracker.gigantino.net:6969/announce
+
+udp://tracker.filemail.com:6969/announce
+
+udp://tracker.dler.org:6969/announce
+
+udp://tracker.bittor.pw:1337/announce
+
+udp://tracker-udp.gbitt.info:80/announce
+
+udp://tr4ck3r.duckdns.org:6969/announce
+
+udp://t.overflow.biz:6969/announce
+
+udp://retracker01-msk-virt.corbina.net:80/announce
+
+udp://retracker.lanta.me:2710/announce
+`;
+   
+    function fetchTextWithFallback(url, callback) {
+      fetch(url)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+          return response.text();
+        })
+        .then(text => {
+          callback(text); // Success: pass content to callback
+        })
+        .catch(error => {
+          console.warn('Fetch failed:', error);
+          document.getElementById('content').textContent = 'Error loading content. Using default static trackers instead.';
+          callback(defaultTrackers); // Fallback value
+        })
+        .finally(() => {
+          console.log('Fetch attempt completed.');
+        });
+    }
+
+
+
+
+    fetchTextWithFallback(fileUrl, result => {
+
+      fileContent = result; // Store content in variable
+
+      // Split and clean lines
+      const lines = fileContent.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
+
+      // Build dynamic query string
+      const formattedLines = lines.map((line, index) => `tr=${encodeURIComponent(line)}`).join('&');
+
+      const { hashv1, name, description } = getHashParams();
+
+      
+      if (!isValidHash(hashv1)) {
+          const warningDiv = document.createElement('div');
+          warningDiv.className = 'warning';
+          warningDiv.textContent = '⚠️ Error: Invalid Magnet hash ' + hashv1;
+
+          const target = document.getElementById("torrent-title");
+          target.appendChild(warningDiv);
+          console.error('Error: Invalid Magnet hash');
+          return;
       }
-      return response.text();
-    })
-    .then(text => {
-      document.getElementById('content').textContent = text;
-    })
-    .catch(error => {
-      document.getElementById('content').textContent = 'Error loading content';
-      console.error('Fetch error:', error);
-    })
+
+      if (name) {
+        title = document.createElement('h2');
+        title.textContent = name;
+        document.getElementById('torrent-title').appendChild(title);
+      }
+
+
+      const formattedParams = `magnet:?xt=urn:btih:${encodeURIComponent(hashv1)}&dn=${encodeURIComponent(name)}`;
+      const magnetLink = `${formattedParams}&${formattedLines}`;
+
+
+      manualLink = document.createElement('h2');
+      manualLink.textContent = 'If the buttons do not work, click or copy the following link into your Torrent client:';
+      document.getElementById('raw').appendChild(manualLink);
+
+      anchor = document.createElement('a');
+      anchor.href = magnetLink;
+      anchor.innerText = magnetLink;
+      document.getElementById('raw').appendChild(anchor);
+
+      manualLink = document.createElement('p');
+      manualLink.textContent = magnetLink;
+      document.getElementById('raw').appendChild(manualLink);
+
+
+      // Create Magnet Button
+      const magnetBtn = document.createElement('button');
+      magnetBtn.className = 'magnet-button';
+      magnetBtn.textContent = '🧲 Open Magnet in your Torrent client';
+      magnetBtn.addEventListener('click', () => {
+          window.location.href = magnetLink;
+      });
+
+      // Create Copy Button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-button';
+      defaultClickMessage = "📋 Don't automatically open, just copy the link";
+      copyBtn.textContent = defaultClickMessage
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(magnetLink)
+          .then(() => {
+            copyBtn.textContent = '✅ Copied, now paste into your seedbox or Torrent client!';
+            setTimeout(() => {
+                copyBtn.textContent = defaultClickMessage
+            }, 5000);
+          })
+          .catch(err => {
+            console.error('Clipboard error:', err);
+            copyBtn.textContent = '❌ Failed to copy';
+          });
+      });
+
+      // Add buttons to the container
+      document.getElementById('buttons').appendChild(magnetBtn);
+      document.getElementById('buttons').appendChild(copyBtn);
+
+    });
 
   </script>
-  <h1>Woow</h1>
+
+  <h1>Magnetizer!</h1>
+  <p>Click the following buttons to import the file into your Torrent client.</p>
+  <h2 class="torrent-title" id="torrent-title"></h2>
+
+  <div class="button-container" id="buttons"></div>
+  <br/><br/>
+  <div>
+    <div class="raw-link" id="raw"></div>
+  </div>
+
+  <div>
+    <h2>Test this tool with Linux ISO served over Torrent</h2>
+    <a href="#hash=2ced861966e919e5ca9e35d27dc23e0b02fb7ff8&name=Debian%2013%20NetINST.iso">Try this tool with Debian 13 NetINST</a>
+    <br/>
+    <a href="https://distrowatch.com/dwres.php?resource=bittorrent">View many other Linux ISO to download via Torrent</a>
+    <br/>
+    <br/>
+  </div>
+
+  <div class="help-box">
+    <div class="help-content">
+      <strong>Torrent? Magnet?</strong><br/><br/>
+      <strong>Torrent</strong> is a powerful downloading method that do not rely on centralized servers and helps bypassing censorship. It is used to transfer files between each other without the need for a central server.
+      <br/>
+      When you use a <strong>magnet</strong> link, the URL you clicked on is passed over to your Torrent client, which uses the DHT P2P network to find other torrent clients with that file and download the file from them. Just click the link and allow your Torrent client to open it, or copy-paste it into your Torrent client, and let it start the download!
+      <br/>
+      <p>Recommended client</p>
+      <ul>
+        <li><a href=https://www.qbittorrent.org/download>https://www.qbittorrent.org/download</a></li>
+        <li><a href=https://deluge-torrent.org/download/>https://deluge-torrent.org/download/</a></li>
+        <li><a href=https://transmissionbt.com/download>https://transmissionbt.com/download</a></li>
+      </ul>
+      <br/>
+      <a href="https://www.youtube.com/watch?v=VIZ9G-bFg8o">Click here</a> to watch a better explanation.
+      <br/><br/>
+      <div>
+        <iframe width="720" height="480" src="https://www.youtube.com/embed/VIZ9G-bFg8o" title="What Are Magnet Links and Torrent Files Simply Explained" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="disclaimer-box">
+    <div class="disclaimer-title">⚠️ Disclaimer</div>
+    This website does not store any information generated through its use. We do not have access to or retain any data provided by users. As such, we cannot be held responsible for any content generated or interactions that occur on this website.
+
+    By using this website, you acknowledge that you understand that no information is stored, and you agree to use the website at your own risk.
+  </div>
 </body>
 </html>
